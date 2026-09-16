@@ -8,6 +8,10 @@ function Reports() {
   const [topProducts, setTopProducts] = useState([])
   const [loading, setLoading] = useState(true)
   const [monthlySalesLog, setMonthlySalesLog] = useState([])
+  const [logMonthFilter, setLogMonthFilter] = useState('')
+  const [logYearFilter, setLogYearFilter] = useState('')
+  const [logLimit, setLogLimit] = useState(5)
+
 
   useEffect(() => {
     const fetchMonthlySalesLog = async () => {
@@ -22,6 +26,24 @@ function Reports() {
     fetchMonthlySalesLog()
   }, [])
 
+
+    const fetchMonthlySalesLog = async () => {
+      try {
+        let url = `/reports/monthly-sales-log/?limit=${logLimit}`
+        if (logMonthFilter) url += `&month=${logMonthFilter}`
+        if (logYearFilter) url += `&year=${logYearFilter}`
+
+        const res = await api.get(url)
+        setMonthlySalesLog(res.data)
+      } catch (error) {
+        console.error('Error fetching monthly sales log:', error)
+      }
+    }
+
+    useEffect(() => {
+      fetchMonthlySalesLog()
+    }, [logMonthFilter, logYearFilter, logLimit])
+    
   useEffect(() => {
     fetchData()
   }, [period])
@@ -198,9 +220,52 @@ function Reports() {
 
       {/* Monthly Sales Log Table Card */}
       <div className="card mt-4">
-        <div className="card-header">
+        <div className="card-header" style={{ flexWrap: 'wrap', gap: '16px', marginBottom: '16px' }}>
           <h3 className="card-title">Monthly Sales Log</h3>
+
+          {/* Filter Controls */}
+          <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+            {/* Month Selector */}
+            <select
+              className="form-select"
+              style={{ width: 'auto', padding: '6px 12px', fontSize: '0.85rem' }}
+              value={logMonthFilter}
+              onChange={(e) => setLogMonthFilter(e.target.value)}
+            >
+              <option value="">All Months</option>
+              {Array.from({ length: 12 }, (_, i) => (
+                <option key={i + 1} value={i + 1}>
+                  {new Date(2000, i).toLocaleString('default', { month: 'long' })}
+                </option>
+              ))}
+            </select>
+
+            {/* Year Selector */}
+            <select
+              className="form-select"
+              style={{ width: 'auto', padding: '6px 12px', fontSize: '0.85rem' }}
+              value={logYearFilter}
+              onChange={(e) => setLogYearFilter(e.target.value)}
+            >
+              <option value="">All Years</option>
+              <option value="2026">2026</option>
+              <option value="2025">2025</option>
+            </select>
+
+            {/* Pagination / Row Display Limit */}
+            <select
+              className="form-select"
+              style={{ width: 'auto', padding: '6px 12px', fontSize: '0.85rem' }}
+              value={logLimit}
+              onChange={(e) => setLogLimit(e.target.value)}
+            >
+              <option value={5}>Last 5 Months</option>
+              <option value={12}>Last 12 Months</option>
+              <option value="all">View All</option>
+            </select>
+          </div>
         </div>
+
         <div className="table-container">
           <table className="table">
             <thead>
@@ -216,18 +281,22 @@ function Reports() {
             <tbody>
               {monthlySalesLog.map((log) => (
                 <tr key={`${log.year}-${log.month}`}>
-                  <td>{log.year}</td>
+                  <td><strong>{log.year}</strong></td>
                   <td>{new Date(log.year, log.month - 1).toLocaleString('default', { month: 'long' })}</td>
                   <td>GH₵{parseFloat(log.total_revenue).toFixed(2)}</td>
-                  <td>GH₵{parseFloat(log.total_profit).toFixed(2)}</td>
+                  <td>
+                    <span style={{ color: 'var(--success)', fontWeight: '600' }}>
+                      GH₵{parseFloat(log.total_profit).toFixed(2)}
+                    </span>
+                  </td>
                   <td>{log.total_transactions}</td>
-                  <td>{log.total_items_sold}</td>
+                  <td>{log.total_items_sold} units</td>
                 </tr>
               ))}
               {monthlySalesLog.length === 0 && (
                 <tr>
                   <td colSpan="6" style={{ textAlign: 'center', padding: '32px', color: 'var(--text-muted)' }}>
-                    No monthly sales log data available.
+                    No monthly sales log records found matching selected filter criteria.
                   </td>
                 </tr>
               )}

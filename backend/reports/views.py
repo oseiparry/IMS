@@ -225,24 +225,25 @@ class MonthlySalesLogView(APIView):
     def get(self, request):
         now = timezone.now()
         
-        # Ensure the current month is calculated/updated dynamically
+        # Ensure current and previous month summaries are updated
         generate_or_update_monthly_log(now.year, now.month)
-        
-        # Also ensure last month is sealed
         last_month_date = now.replace(day=1) - timedelta(days=1)
         generate_or_update_monthly_log(last_month_date.year, last_month_date.month)
 
-        logs = MonthlySalesLog.objects.all()
+        logs = MonthlySalesLog.objects.all().order_by('-year', '-month')
+
+        # Filter by year and month if provided
+        year_param = request.query_params.get('year')
+        month_param = request.query_params.get('month')
+        limit_param = request.query_params.get('limit', 5)  # Default limit: 5
+
+        if year_param:
+            logs = logs.filter(year=int(year_param))
+        if month_param:
+            logs = logs.filter(month=int(month_param))
+
+        if limit_param and limit_param != 'all':
+            logs = logs[:int(limit_param)]
+
         serializer = MonthlySalesLogSerializer(logs, many=True)
         return Response(serializer.data)
-
-    def post(self, request):
-        """Allows manual triggering to seal/re-calculate a specific month"""
-        year = request.data.get('year')
-        month = request.data.get('month')
-
-        if not year or not month:
-            return Response({'error': 'Year and month are required'}, status=status.HTTP_400_BAD_REQUEST)
-
-        log = generate_or_update_monthly_log(int(year), int(month))
-        return Response(MonthlySalesLogSerializer(log).data)
